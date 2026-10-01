@@ -4,6 +4,7 @@ set -euo pipefail
 FIRMWARE_DIR="firmware"
 QEMU="qemu-sptm/build/qemu-system-aarch64"
 BOOT_ARGS="rd=md0 serial=3 -v -noprogress wdt=-1 wlan-olyhal-abort"
+ENABLE_QEMUPORTS=0
 
 fix_tty() {
     stty sane
@@ -29,11 +30,45 @@ boot_qemu() {
         )
     fi
 
+    if [[ "${ENABLE_QEMUPORTS}" = 1 ]]; then
+        args+=(
+            # qemuport0:
+            -chardev "socket,id=s0,host=localhost,server=on,wait=off,port=2100"
+            -serial chardev:s0
+
+            # Uncomment the following to enable more ports if you need them:
+            # # qemuport1:
+            # -chardev "socket,id=s1,host=localhost,server=on,wait=off,port=2101"
+            # -serial chardev:s1
+
+            # # qemuport2:
+            # -chardev "socket,id=s2,host=localhost,server=on,wait=off,port=2102"
+            # -serial chardev:s2
+
+            # # qemuport3:
+            # -chardev "socket,id=s3,host=localhost,server=on,wait=off,port=2103"
+            # -serial chardev:s3
+        )
+    fi
+
     "${QEMU}" "${args[@]}"
 }
 
 main() {
     trap 'fix_tty' EXIT
+
+    while getopts "hp" opt; do
+        case "${opt}" in
+            p)
+                ENABLE_QEMUPORTS=1
+                ;;
+            *)
+                echo "usage: ${0} [-p] [-h]"
+                exit 0
+                ;;
+        esac
+    done
+
     boot_qemu
 }
 

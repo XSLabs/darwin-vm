@@ -11,6 +11,9 @@ AMCC_BANK_STRIDE = 0x100
 AMCC_LOWER_LIMIT_REG = 0x10
 AMCC_UPPER_LIMIT_REG = 0x20
 
+NUM_TUNNEL_DEVICES=4
+TUNNEL_DEVICE_PREFIX="qemuport"
+
 class ADTNode:
   def __init__(self):
     self.props = {}
@@ -166,7 +169,35 @@ def get_soc_gen(d):
 
   return int(soc_gen_name[1:])
 
-def fixup(d, nvram_file):
+def copy_uart(name, uart0, index):
+  new_uart = ADTNode()
+  new_uart.props['name'] = name
+
+  uart0_base, uart0_size = struct.unpack("<QQ", uart0.props['reg'])
+
+  for i in ['compatible', 'interrupt-parent']:
+    new_uart.props[i] = uart0.props[i]
+
+  new_uart.props['reg'] = struct.pack("<QQ", uart0_base + index * uart0_size, uart0_size)
+  new_uart.props['interrupts'] = f"u32:{hex(index)}"
+  return new_uart
+
+'''
+create_tunnel_devices creates additional UART devices after uart0 in memory to
+be used as tunnels for communicating with the guest (eg. to tunnel ssh). You
+can hook these up to a socket chardev on the host side and use socat in the
+guest to turn these into TCP tunnels.
+
+This assumes two things:
+1. There is nothing immediately after uart0 in physmem for a few 16K pages.
+2. We assign interrupt numbers starting at 1, 2, 3, and on, so there should be
+   nothing else with interrupt numbers in that range.
+'''
+def create_tunnel_devices(d):
+  for i in range(NUM_TUNNEL_DEVICES):
+    d['arm-io'].children.append(copy_uart(f'{TUNNEL_DEVICE_PREFIX}{i}', d['arm-io']['uart0'], i+1))
+
+def fixup(d, nvram_file, disable_network):
   d.props['platform-name'] = get_platform_name(d)
   soc_gen = get_soc_gen(d)
 
@@ -200,6 +231,8 @@ def fixup(d, nvram_file):
     d['arm-io']['sep']['iop-sep-nub']['InvalidateHmac'].props['sio-hmac1-disable-mask'] = "u64:0xffffffffffffffff"
 
   d['arm-io'].remove_child('dockchannel-uart')
+
+  if not disable_network: create_tunnel_devices(d)
 
   # disable RTC timeout in IOKitInitializeTime
   # IOKitInitializeTime waits for the IORTC resource which never appears since
@@ -312,11 +345,12 @@ def main():
   p.add_argument('dtree', type=argparse.FileType('rb', 0))
   p.add_argument('out', type=argparse.FileType('wb', 0))
   p.add_argument('-nvram', required=True, type=argparse.FileType('rb', 0))
+  p.add_argument('-disable_network', action='store_true', help="don't create extra UARTs for TCP tunneling")
   args = p.parse_args()
 
   dt_root = ADTNode()
   decode_node(args.dtree.read(),dt_root)
-  fixup(dt_root, nvram_file=args.nvram)
+  fixup(dt_root, nvram_file=args.nvram, disable_network=args.disable_network)
   args.out.write(encode_node(dt_root))
 
 if __name__=="__main__":

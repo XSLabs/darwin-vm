@@ -13,6 +13,7 @@ Features:
 - Supports SPTM based kernels and CPUs with MIE.
 - Can debug / patch the kernel, SPTM, TXM, dyld, launchd, and userspace programs.
 - Automated setup to get going in just a few minutes.
+- SSH and TCP tunneling over UART
 
 ```
 $ ./run.sh
@@ -171,6 +172,8 @@ Launch the VM:
 
 Your VM should boot to a root shell! Use `ctrl+A` followed by `x` in the
 terminal to quit Qemu.
+
+If you want to enable SSH/ TCP tunneling, see [TCP_TUNNELING_SSH.md](TCP_TUNNELING_SSH.md).
 
 ## 1. Preparing Files
 
@@ -662,6 +665,11 @@ $ ./silence_logs.py firmware/bootkc
 You can add your own strings to patch out by editing the `PATCHOUTS` dictionary
 in `silence_logs.py`. If you don't know which kext generated a log, put your
 strings to patch out under the `*` key.
+
+## 10. SSHing into the VM
+
+You can host an ssh server inside the VM and connect to it by tunneling TCP
+traffic over UART. See [TCP_TUNNELING_SSH.md](TCP_TUNNELING_SSH.md) for more.
 
 # FAQ
 
