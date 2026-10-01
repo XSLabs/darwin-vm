@@ -9,7 +9,8 @@ set -euo pipefail
 
 IPSW_BIN="ipsw_db"
 
-IOS_SYSROOT_TARFILE="ios_sysroot.tar.gz"
+IOS_SYSROOT_TARFILE="sysroot/ios_sysroot.tar.gz"
+MACOS_SYSROOT_TARFILE="sysroot/macos_sysroot.tar.gz"
 
 ADT_FIXUP="./dt_fixup.py"
 NVRAM_BIN="nvram.bin"
@@ -146,6 +147,7 @@ get_ramdisk() {
 
 patch_ramdisk() {
     local ramdisk
+    local systar
     ramdisk="${FW_DIR}/ramdisk.dmg"
 
     if [[ "$(uname)" != "Darwin" ]]; then
@@ -182,22 +184,25 @@ patch_ramdisk() {
 
     case "${SYS_SDK}" in
         'iphoneos')
-            if [[ ! -f "${IOS_SYSROOT_TARFILE}" ]]; then
-                echo "couldn't find the iOS sysroot"
-                exit 1
-            fi
-
-            echo "extracting iOS sysroot..."
-            tar xf "${IOS_SYSROOT_TARFILE}" --directory "${livemount}" --strip-components 1
-            echo "signing binaries..."
-            find "${livemount}/bin" -type f -exec codesign -s - {} \;
+            systar="${IOS_SYSROOT_TARFILE}"
             ;;
         'macosx')
+            systar="${MACOS_SYSROOT_TARFILE}"
             ;;
         *)
             die "unknown SDK (${SYS_SDK})"
             ;;
     esac
+
+    if [[ ! -f "${systar}" ]]; then
+        die "couldn't find the sysroot"
+    fi
+
+    echo "extracting sysroot..."
+    tar xf "${systar}" --directory "${livemount}" --strip-components 1
+
+    echo "signing binaries..."
+    find "${livemount}/bin" "${livemount}/sbin" -type f -perm +111 -exec codesign -s - {} \; 2>/dev/null
 
     echo "building trustcache..."
 
