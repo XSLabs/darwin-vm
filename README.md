@@ -12,8 +12,8 @@ Features:
 - Supports emulating A19-A14 (iOS) and M5-M1 (macOS) CPUs.
 - Supports SPTM based kernels and CPUs with MIE.
 - Can debug / patch the kernel, SPTM, TXM, dyld, launchd, and userspace programs.
+- SSH and TCP tunneling over UART.
 - Automated setup to get going in just a few minutes.
-- SSH and TCP tunneling over UART
 
 ```
 $ ./run.sh
